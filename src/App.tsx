@@ -31,9 +31,10 @@ import {
   ArrowUpDown,
 } from "lucide-react";
 import React, { useState, useEffect, useRef } from "react";
-import { Media } from '@capacitor-community/media';
-import { Capacitor } from '@capacitor/core';
-import { Filesystem, Directory } from '@capacitor/filesystem';
+import { Capacitor, registerPlugin } from '@capacitor/core';
+import { Filesystem } from '@capacitor/filesystem';
+
+const VideoProvider = registerPlugin<any>('VideoProvider');
 
 const ALBUMS = ["All", "Camera Roll", "Favorites", "Recent", "Downloads"];
 
@@ -1175,29 +1176,16 @@ export default function App() {
             return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
           };
 
-          const res = await Media.getMedias({
-            quantity: 200,
-            types: 'videos',
-          });
+          const res = await VideoProvider.getVideos();
 
-          if (res && res.medias) {
-            const vids = res.medias.map((v, i) => {
-              // Extract filename from the path
-              const fileNameMatch = v.identifier.match(/([^/]+)$/);
-              const fileName = fileNameMatch ? fileNameMatch[1] : `Video ${i+1}`;
-              
-              // On Android identifier is the path, might need 'file://' prefix
-              let nativePath = v.identifier;
-              if (!nativePath.startsWith('file://')) {
-                nativePath = 'file://' + nativePath;
-              }
-
+          if (res && res.videos && res.videos.length > 0) {
+            const vids = res.videos.map((v: any, i: number) => {
               return {
-                id: 1000 + i,
-                title: fileName,
-                duration: formatDuration(v.duration),
-                album: 'Camera Roll',
-                path: Capacitor.convertFileSrc(nativePath)
+                id: v.id,
+                title: v.title || `Video ${i+1}`,
+                duration: formatDuration(Math.floor(v.duration / 1000)),
+                album: 'Gallery',
+                path: Capacitor.convertFileSrc(v.path)
               };
             });
 

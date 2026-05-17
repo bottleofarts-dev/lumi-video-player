@@ -2,5 +2,9 @@
 	{
 		"pkg": "@capacitor-community/media",
 		"classpath": "com.getcapacitor.community.media.MediaPlugin"
+	},
+	{
+		"pkg": "@capacitor/filesystem",
+		"classpath": "com.capacitorjs.plugins.filesystem.FilesystemPlugin"
 	}
 ]
