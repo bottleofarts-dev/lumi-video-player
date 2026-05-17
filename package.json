@@ -1,5 +1,6 @@
 {
-  "name": "react-example",
+  "name": "video-player-app",
+  "description": "Video player application",
   "private": true,
   "version": "0.0.0",
   "type": "module",
