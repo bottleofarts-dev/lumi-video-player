@@ -31,6 +31,7 @@ import {
   ArrowUpDown,
 } from "lucide-react";
 import React, { useState, useEffect, useRef } from "react";
+import { Media } from '@capacitor-community/media';
 import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 
@@ -1166,31 +1167,51 @@ export default function App() {
       if (Capacitor.isNativePlatform()) {
         try {
           await Filesystem.requestPermissions();
-          const loadFromDir = async (dir, dirName, initialId) => {
-            try {
-              const res = await Filesystem.readdir({ path: '', directory: dir });
-              return res.files.filter(f => f.name && (f.name.endsWith('.mp4') || f.name.endsWith('.mkv'))).map((v, i) => ({
-                id: initialId + i,
-                title: v.name,
-                duration: '00:00',
-                album: dirName,
-                path: Capacitor.convertFileSrc(v.uri)
-              }));
-            } catch(e) {
-              return [];
-            }
+          
+          const formatDuration = (sec?: number) => {
+            if (!sec) return '00:00';
+            const m = Math.floor(sec / 60);
+            const s = Math.floor(sec % 60);
+            return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
           };
-          const m = await loadFromDir(Directory.Data, "Data", 1000);
-          const d = await loadFromDir(Directory.Documents, "Documents", 2000);
-          const vids = [...m, ...d];
-          if (vids.length > 0) {
-            FOLDERS = [];
-            if(m.length) FOLDERS.push({ id: 1000, name: "Data", count: m.length, color: "bg-blue-500/20"});
-            if(d.length) FOLDERS.push({ id: 2000, name: "Documents", count: d.length, color: "bg-green-500/20"});
+
+          const res = await Media.getMedias({
+            quantity: 200,
+            types: 'videos',
+          });
+
+          if (res && res.medias) {
+            const vids = res.medias.map((v, i) => {
+              // Extract filename from the path
+              const fileNameMatch = v.identifier.match(/([^/]+)$/);
+              const fileName = fileNameMatch ? fileNameMatch[1] : `Video ${i+1}`;
+              
+              // On Android identifier is the path, might need 'file://' prefix
+              let nativePath = v.identifier;
+              if (!nativePath.startsWith('file://')) {
+                nativePath = 'file://' + nativePath;
+              }
+
+              return {
+                id: 1000 + i,
+                title: fileName,
+                duration: formatDuration(v.duration),
+                album: 'Camera Roll',
+                path: Capacitor.convertFileSrc(nativePath)
+              };
+            });
+
+            FOLDERS = [
+              { id: 1000, name: "Gallery", count: vids.length, color: "bg-blue-500/20 text-blue-400" }
+            ];
             ALL_VIDEOS = vids;
-            RECENT_VIDEOS = vids.slice(0, 5);
+            RECENT_VIDEOS = vids.slice(0, 10);
+          } else {
+             ALL_VIDEOS = [];
+             RECENT_VIDEOS = [];
+             FOLDERS = [];
           }
-        } catch(e) { console.error(e); }
+        } catch(e) { console.error("Media load err: ", e); }
       }
       setIsNativeReady(true);
     };
