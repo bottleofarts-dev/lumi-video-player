@@ -33,24 +33,26 @@ import {
 import React, { useState, useEffect, useRef } from "react";
 import { Capacitor, registerPlugin } from '@capacitor/core';
 import { Filesystem } from '@capacitor/filesystem';
+import { CapacitorVideoPlayer } from 'capacitor-video-player';
+import { App as CapacitorApp } from '@capacitor/app';
 
 const VideoProvider = registerPlugin<any>('VideoProvider');
 
 const ALBUMS = ["All", "Camera Roll", "Favorites", "Recent", "Downloads"];
 
-let RECENT_VIDEOS = [
-  { id: 1, title: "Summer Trip 2023", duration: "12:45", album: "Recent" },
-  { id: 2, title: "Project Demo", duration: "04:30", album: "Recent" },
-  { id: 3, title: "Birthday Party", duration: "24:10", album: "Recent" },
+let RECENT_VIDEOS: any[] = [
+  { id: 1, title: "Summer Trip 2023", duration: "12:45", album: "Recent", path: "" },
+  { id: 2, title: "Project Demo", duration: "04:30", album: "Recent", path: "" },
+  { id: 3, title: "Birthday Party", duration: "24:10", album: "Recent", path: "" },
 ];
 
-let ALL_VIDEOS = [
-  { id: 101, title: "Workout Routine", album: "Favorites", duration: "18:20" },
-  { id: 102, title: "Cooking Tutorial", album: "Recent", duration: "05:15" },
-  { id: 103, title: "Review Video", album: "Downloads", duration: "10:00" },
-  { id: 104, title: "Vlog #42", album: "Camera Roll", duration: "08:45" },
-  { id: 105, title: "Design Sprint", album: "Favorites", duration: "32:10" },
-  { id: 106, title: "Family Gathering", album: "Camera Roll", duration: "15:00" },
+let ALL_VIDEOS: any[] = [
+  { id: 101, title: "Workout Routine", album: "Favorites", duration: "18:20", path: "" },
+  { id: 102, title: "Cooking Tutorial", album: "Recent", duration: "05:15", path: "" },
+  { id: 103, title: "Review Video", album: "Downloads", duration: "10:00", path: "" },
+  { id: 104, title: "Vlog #42", album: "Camera Roll", duration: "08:45", path: "" },
+  { id: 105, title: "Design Sprint", album: "Favorites", duration: "32:10", path: "" },
+  { id: 106, title: "Family Gathering", album: "Camera Roll", duration: "15:00", path: "" },
 ];
 
 let FOLDERS = [
@@ -745,19 +747,26 @@ function HomeSection({ onPlay }: { onPlay: (video: any) => void }) {
                 className="snap-center flex-none w-[280px] sm:w-[320px] aspect-video bg-gradient-to-br from-[#3a3a3c] to-[#2c2c2e] rounded-3xl flex items-center justify-center relative overflow-hidden group cursor-pointer shadow-lg shadow-black/20"
               >
                 {/* Simulated playback progress visual */}
-                <div className="absolute bottom-0 left-0 h-1 bg-black/40 w-full">
+                <div className="absolute bottom-0 left-0 h-1 bg-black/40 w-full z-20">
                   <div
                     className="h-full bg-[var(--theme-color)]"
                     style={{ width: `${Math.random() * 60 + 10}%` }}
                   />
                 </div>
 
-                <Clapperboard className="w-20 h-20 text-zinc-600/50 group-hover:text-[rgba(var(--theme-rgb),0.6)] transition-colors duration-500" />
+                <video 
+                  src={`${video.path}#t=0.1`} 
+                  preload="metadata" 
+                  className="absolute inset-0 w-full h-full object-cover pointer-events-none opacity-60"
+                  muted playsInline
+                />
+
+                <Clapperboard className="w-20 h-20 text-white/20 relative z-10 transition-colors duration-500 hidden" />
                 
-                {/* Overlay data */}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-4">
-                   <p className="text-white font-medium truncate">{video.title}</p>
-                   <p className="text-zinc-400 text-xs">{video.duration}</p>
+                {/* Overlay data ALWAYS VISIBLE */}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent flex flex-col justify-end p-4 z-20">
+                   <p className="text-white font-medium truncate drop-shadow-md">{video.title}</p>
+                   <p className="text-zinc-300 font-mono text-xs drop-shadow-md">{video.duration}</p>
                 </div>
               </motion.div>
             ))}
@@ -792,10 +801,19 @@ function HomeSection({ onPlay }: { onPlay: (video: any) => void }) {
               onClick={() => onPlay(video)}
               className="aspect-square bg-[#2c2c2e] rounded-[24px] flex items-center justify-center relative overflow-hidden group cursor-pointer border border-[#3a3a3c]/30 hover:border-[rgba(var(--theme-rgb),0.3)] transition-colors shadow-sm"
             >
-              <Film className="w-12 h-12 text-zinc-700 group-hover:text-zinc-500 transition-colors" />
-               <div className="absolute bottom-3 left-3 right-3">
-                  <p className="text-zinc-300 text-sm font-medium truncate bg-black/40 px-2 py-1 rounded-md backdrop-blur-md inline-block max-w-full">
+              <video 
+                src={`${video.path}#t=0.1`} 
+                preload="metadata" 
+                className="absolute inset-0 w-full h-full object-cover pointer-events-none opacity-60"
+                muted playsInline
+              />
+              <Film className="w-12 h-12 text-white/20 relative z-10 hidden" />
+               <div className="absolute bottom-3 left-3 right-3 z-20 flex justify-between items-end">
+                  <p className="text-zinc-200 text-sm font-medium truncate bg-black/60 px-2 py-1 rounded-md backdrop-blur-md inline-block max-w-[70%]">
                     {video.title}
+                  </p>
+                  <p className="text-white font-mono text-[10px] bg-black/60 px-1.5 py-1 rounded backdrop-blur-md">
+                    {video.duration}
                   </p>
                </div>
             </motion.div>
@@ -1160,6 +1178,39 @@ const APP_COLORS = [
   { hex: "#818CF8", rgb: "129, 140, 248" }, // Indigo
 ];
 
+const NativeOrWebPlayer = ({ video, onClose, onNext, onPrev }: any) => {
+   useEffect(() => {
+      if (Capacitor.isNativePlatform()) {
+         let isCleanedUp = false;
+         const playNative = async () => {
+             try {
+                 await CapacitorVideoPlayer.initPlayer({ mode: 'fullscreen', url: video.path });
+             } catch(e) { console.error('playerr', e); onClose(); }
+         };
+         
+         const listeners = [
+            (CapacitorVideoPlayer as any).addListener('jeepCapVideoPlayerExit', () => {
+               if (!isCleanedUp) onClose();
+            }),
+            (CapacitorVideoPlayer as any).addListener('jeepCapVideoPlayerEnded', () => {
+               if (!isCleanedUp) onClose();
+            })
+         ];
+         
+         playNative();
+         
+         return () => {
+            isCleanedUp = true;
+            listeners.forEach(l => l.then(sub => sub.remove()));
+            CapacitorVideoPlayer.stopAllPlayers().catch(()=>{});
+         };
+      }
+   }, [video]);
+   
+   if (Capacitor.isNativePlatform()) return null; // Native overlay is handled
+   return <VideoPlayer video={video} onClose={onClose} onNext={onNext} onPrev={onPrev} />;
+};
+
 export default function App() {
   const [isNativeReady, setIsNativeReady] = useState(false);
 
@@ -1182,14 +1233,23 @@ export default function App() {
                 id: v.id,
                 title: v.title || `Video ${i+1}`,
                 duration: formatDuration(Math.floor(v.duration / 1000)),
-                album: 'Gallery',
+                album: v.album || 'Gallery',
                 path: Capacitor.convertFileSrc(v.path)
               };
             });
 
-            FOLDERS = [
-              { id: 1000, name: "Gallery", count: vids.length, color: "bg-blue-500/20 text-blue-400" }
-            ];
+            const albumCounts: Record<string, number> = {};
+            vids.forEach((v: any) => {
+                albumCounts[v.album] = (albumCounts[v.album] || 0) + 1;
+            });
+
+            FOLDERS = Object.keys(albumCounts).map((album, index) => ({
+                id: 1000 + index,
+                name: album,
+                count: albumCounts[album],
+                color: APP_COLORS[index % APP_COLORS.length].hex
+            }));
+
             ALL_VIDEOS = vids;
             RECENT_VIDEOS = vids.slice(0, 10);
           } else {
@@ -1208,6 +1268,25 @@ export default function App() {
     };
     loadNativeMedia();
   }, []);
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+    const listener = CapacitorApp.addListener('backButton', ({ canGoBack }) => {
+      setPlayingVideo((currentVideo) => {
+        if (currentVideo) {
+          // Handled by video player plugin or just close UI
+          return null;
+        }
+        if (!canGoBack) {
+          CapacitorApp.exitApp();
+        } else {
+          window.history.back();
+        }
+        return currentVideo;
+      });
+    });
+    return () => { listener.then(l => l.remove()); };
+  }, []);
+
   const [activeTab, setActiveTab] = useState("home");
   const [direction, setDirection] = useState(0);
   const [playingVideo, setPlayingVideo] = useState<any>(null);
@@ -1290,7 +1369,7 @@ export default function App() {
 
       <AnimatePresence>
         {playingVideo && (
-          <VideoPlayer 
+          <NativeOrWebPlayer 
             video={playingVideo} 
             onClose={() => setPlayingVideo(null)} 
             onNext={handleNextVideo}
