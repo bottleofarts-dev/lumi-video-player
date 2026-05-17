@@ -72,7 +72,9 @@ public class VideoProviderPlugin extends Plugin {
         String[] projection = new String[] {
             MediaStore.Video.Media._ID,
             MediaStore.Video.Media.DISPLAY_NAME,
-            MediaStore.Video.Media.DURATION
+            MediaStore.Video.Media.DURATION,
+            MediaStore.Video.Media.DATA,
+            MediaStore.Video.Media.BUCKET_DISPLAY_NAME
         };
         
         Uri collection;
@@ -93,11 +95,15 @@ public class VideoProviderPlugin extends Plugin {
                 int idColumn = cursor.getColumnIndexOrThrow(MediaStore.Video.Media._ID);
                 int nameColumn = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.DISPLAY_NAME);
                 int durationColumn = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.DURATION);
+                int dataColumn = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.DATA);
+                int bucketColumn = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.BUCKET_DISPLAY_NAME);
 
                 while (cursor.moveToNext()) {
                     long id = cursor.getLong(idColumn);
                     String name = cursor.getString(nameColumn);
                     long duration = cursor.getLong(durationColumn);
+                    String dataPath = cursor.getString(dataColumn);
+                    String bucketName = cursor.getString(bucketColumn);
 
                     Uri contentUri = ContentUris.withAppendedId(collection, id);
 
@@ -105,8 +111,24 @@ public class VideoProviderPlugin extends Plugin {
                     video.put("id", id);
                     video.put("title", name);
                     video.put("duration", duration);
-                    video.put("path", contentUri.toString());
+                    video.put("path", dataPath != null ? dataPath : contentUri.toString());
+                    video.put("album", bucketName != null ? bucketName : "Gallery");
                     
+                    if (dataPath != null) {
+                        int lastDot = dataPath.lastIndexOf('.');
+                        if (lastDot > 0) {
+                            String basePath = dataPath.substring(0, lastDot);
+                            java.io.File srtFile = new java.io.File(basePath + ".srt");
+                            java.io.File vttFile = new java.io.File(basePath + ".vtt");
+                            
+                            if (srtFile.exists()) {
+                                video.put("subtitle", srtFile.getAbsolutePath());
+                            } else if (vttFile.exists()) {
+                                video.put("subtitle", vttFile.getAbsolutePath());
+                            }
+                        }
+                    }
+
                     videos.put(video);
                 }
             }

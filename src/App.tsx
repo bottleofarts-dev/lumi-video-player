@@ -33,12 +33,12 @@ import {
 import React, { useState, useEffect, useRef } from "react";
 import { Capacitor, registerPlugin } from '@capacitor/core';
 import { Filesystem } from '@capacitor/filesystem';
-import { CapacitorVideoPlayer } from 'capacitor-video-player';
+import { VideoPlayer as CapacitorVideoPlayer } from '@capgo/capacitor-video-player';
 import { App as CapacitorApp } from '@capacitor/app';
 
 const VideoProvider = registerPlugin<any>('VideoProvider');
 
-const ALBUMS = ["All", "Camera Roll", "Favorites", "Recent", "Downloads"];
+let ALBUMS = ["All", "Camera Roll", "Favorites", "Recent", "Downloads"];
 
 let RECENT_VIDEOS: any[] = [
   { id: 1, title: "Summer Trip 2023", duration: "12:45", album: "Recent", path: "" },
@@ -1184,7 +1184,11 @@ const NativeOrWebPlayer = ({ video, onClose, onNext, onPrev }: any) => {
          let isCleanedUp = false;
          const playNative = async () => {
              try {
-                 await CapacitorVideoPlayer.initPlayer({ mode: 'fullscreen', url: video.path });
+                 const opts: any = { mode: 'fullscreen', url: video.path };
+                 if (video.subtitle) {
+                     opts.subtitle = video.subtitle;
+                 }
+                 await CapacitorVideoPlayer.initPlayer(opts);
              } catch(e) { console.error('playerr', e); onClose(); }
          };
          
@@ -1234,7 +1238,8 @@ export default function App() {
                 title: v.title || `Video ${i+1}`,
                 duration: formatDuration(Math.floor(v.duration / 1000)),
                 album: v.album || 'Gallery',
-                path: Capacitor.convertFileSrc(v.path)
+                path: Capacitor.convertFileSrc(v.path),
+                subtitle: v.subtitle ? Capacitor.convertFileSrc(v.subtitle) : undefined
               };
             });
 
@@ -1249,6 +1254,8 @@ export default function App() {
                 count: albumCounts[album],
                 color: APP_COLORS[index % APP_COLORS.length].hex
             }));
+
+            ALBUMS = ["All", ...FOLDERS.map(f => f.name)];
 
             ALL_VIDEOS = vids;
             RECENT_VIDEOS = vids.slice(0, 10);

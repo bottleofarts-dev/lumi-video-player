@@ -12,7 +12,7 @@
 		"classpath": "com.capacitorjs.plugins.filesystem.FilesystemPlugin"
 	},
 	{
-		"pkg": "capacitor-video-player",
-		"classpath": "com.jeep.plugin.capacitor.capacitorvideoplayer.CapacitorVideoPlayerPlugin"
+		"pkg": "@capgo/capacitor-video-player",
+		"classpath": "com.capgo.videoplayer.VideoPlayerPlugin"
 	}
 ]

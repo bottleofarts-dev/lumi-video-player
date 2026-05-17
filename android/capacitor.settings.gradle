@@ -11,5 +11,5 @@ project(':capacitor-app').projectDir = new File('../node_modules/@capacitor/app/
 include ':capacitor-filesystem'
 project(':capacitor-filesystem').projectDir = new File('../node_modules/@capacitor/filesystem/android')
 
-include ':capacitor-video-player'
-project(':capacitor-video-player').projectDir = new File('../node_modules/capacitor-video-player/android')
+include ':capgo-capacitor-video-player'
+project(':capgo-capacitor-video-player').projectDir = new File('../node_modules/@capgo/capacitor-video-player/android')
