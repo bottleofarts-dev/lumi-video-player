@@ -20,11 +20,12 @@ import com.getcapacitor.annotation.PermissionCallback;
     name = "VideoProvider",
     permissions = {
         @Permission(
-            strings = { 
-                Manifest.permission.READ_EXTERNAL_STORAGE,
-                Manifest.permission.READ_MEDIA_VIDEO
-            }, 
+            strings = { Manifest.permission.READ_EXTERNAL_STORAGE },
             alias = "storage"
+        ),
+        @Permission(
+            strings = { Manifest.permission.READ_MEDIA_VIDEO },
+            alias = "media"
         )
     }
 )
@@ -32,19 +33,36 @@ public class VideoProviderPlugin extends Plugin {
 
     @PluginMethod
     public void getVideos(PluginCall call) {
-        if (getPermissionState("storage") != com.getcapacitor.PermissionState.GRANTED) {
-            requestPermissionForAlias("storage", call, "storagePermsCallback");
+        if (android.os.Build.VERSION.SDK_INT >= 33) {
+            if (getPermissionState("media") != com.getcapacitor.PermissionState.GRANTED) {
+                requestPermissionForAlias("media", call, "mediaPermsCallback");
+            } else {
+                loadVideos(call);
+            }
         } else {
-            loadVideos(call);
+            if (getPermissionState("storage") != com.getcapacitor.PermissionState.GRANTED) {
+                requestPermissionForAlias("storage", call, "storagePermsCallback");
+            } else {
+                loadVideos(call);
+            }
         }
     }
-    
+
+    @PermissionCallback
+    private void mediaPermsCallback(PluginCall call) {
+        if (getPermissionState("media") == com.getcapacitor.PermissionState.GRANTED) {
+            loadVideos(call);
+        } else {
+            call.reject("Media permission is required to read videos");
+        }
+    }
+
     @PermissionCallback
     private void storagePermsCallback(PluginCall call) {
         if (getPermissionState("storage") == com.getcapacitor.PermissionState.GRANTED) {
             loadVideos(call);
         } else {
-            call.reject("Permission is required to read videos");
+            call.reject("Storage permission is required to read videos");
         }
     }
 
