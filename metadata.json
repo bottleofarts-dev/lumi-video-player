@@ -1,0 +1,8 @@
+{
+  "name": "Lumi Video Player",
+  "description": "A dark-themed, cinematic local video player interface with smooth animations and interactive elements.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

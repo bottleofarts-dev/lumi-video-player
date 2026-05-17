@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Video Player</string>
+    <string name="title_activity_main">Video Player</string>
+    <string name="package_name">com.videoplayer.app</string>
+    <string name="custom_url_scheme">com.videoplayer.app</string>
+</resources>
