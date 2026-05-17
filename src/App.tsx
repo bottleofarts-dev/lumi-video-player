@@ -1167,8 +1167,6 @@ export default function App() {
     const loadNativeMedia = async () => {
       if (Capacitor.isNativePlatform()) {
         try {
-          await Filesystem.requestPermissions();
-          
           const formatDuration = (sec?: number) => {
             if (!sec) return '00:00';
             const m = Math.floor(sec / 60);
@@ -1199,7 +1197,12 @@ export default function App() {
              RECENT_VIDEOS = [];
              FOLDERS = [];
           }
-        } catch(e) { console.error("Media load err: ", e); }
+        } catch(e) { 
+           console.error("Media load err: ", e); 
+           ALL_VIDEOS = [];
+           RECENT_VIDEOS = [];
+           FOLDERS = [];
+        }
       }
       setIsNativeReady(true);
     };
