@@ -129,6 +129,37 @@ public class VideoProviderPlugin extends Plugin {
                         }
                     }
 
+                    java.io.File cacheDir = getContext().getCacheDir();
+                    java.io.File thumbFile = new java.io.File(cacheDir, "thumb_" + id + ".jpg");
+                    
+                    if (thumbFile.exists()) {
+                        video.put("thumbnail", thumbFile.getAbsolutePath());
+                    } else {
+                        android.graphics.Bitmap thumbnail = null;
+                        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                            try {
+                                thumbnail = getContext().getContentResolver().loadThumbnail(
+                                    contentUri, new android.util.Size(320, 240), null);
+                            } catch (java.io.IOException e) {
+                                // ignore
+                            }
+                        } else {
+                            thumbnail = MediaStore.Video.Thumbnails.getThumbnail(
+                                getContext().getContentResolver(), id, MediaStore.Video.Thumbnails.MINI_KIND, null);
+                        }
+
+                        if (thumbnail != null) {
+                            try {
+                                java.io.FileOutputStream fos = new java.io.FileOutputStream(thumbFile);
+                                thumbnail.compress(android.graphics.Bitmap.CompressFormat.JPEG, 80, fos);
+                                fos.close();
+                                video.put("thumbnail", thumbFile.getAbsolutePath());
+                            } catch (Exception e) {
+                               // ignore
+                            }
+                        }
+                    }
+
                     videos.put(video);
                 }
             }

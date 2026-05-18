@@ -36,6 +36,35 @@ import { Filesystem } from '@capacitor/filesystem';
 import { VideoPlayer as CapacitorVideoPlayer } from '@capgo/capacitor-video-player';
 import { App as CapacitorApp } from '@capacitor/app';
 
+if (typeof window !== 'undefined') {
+  (window as any).backHandlers = [];
+  if (Capacitor.isNativePlatform()) {
+    CapacitorApp.removeAllListeners();
+    CapacitorApp.addListener('backButton', ({ canGoBack }) => {
+      const handlers = (window as any).backHandlers;
+      if (handlers && handlers.length > 0) {
+         const handler = handlers[handlers.length - 1];
+         handler(); // consume it
+      } else {
+         if (canGoBack) window.history.back();
+         else CapacitorApp.exitApp();
+      }
+    });
+  }
+}
+
+function useBackButton(handler: () => void, enabled: boolean) {
+  useEffect(() => {
+    if (!enabled || !Capacitor.isNativePlatform()) return;
+    const handlers = (window as any).backHandlers;
+    handlers.push(handler);
+    return () => {
+      const idx = handlers.indexOf(handler);
+      if (idx !== -1) handlers.splice(idx, 1);
+    };
+  }, [handler, enabled]);
+}
+
 const VideoProvider = registerPlugin<any>('VideoProvider');
 
 let ALBUMS = ["All", "Camera Roll", "Favorites", "Recent", "Downloads"];
@@ -754,12 +783,16 @@ function HomeSection({ onPlay }: { onPlay: (video: any) => void }) {
                   />
                 </div>
 
-                <video 
-                  src={`${video.path}#t=0.1`} 
-                  preload="metadata" 
-                  className="absolute inset-0 w-full h-full object-cover pointer-events-none opacity-60"
-                  muted playsInline
-                />
+                {video.thumbnail ? (
+                   <img src={video.thumbnail} className="absolute inset-0 w-full h-full object-cover opacity-80" alt="" />
+                 ) : (
+                   <video 
+                     src={`${video.path}#t=0.1`} 
+                     preload="metadata" 
+                     className="absolute inset-0 w-full h-full object-cover pointer-events-none opacity-60"
+                     muted playsInline
+                   />
+                 )}
 
                 <Clapperboard className="w-20 h-20 text-white/20 relative z-10 transition-colors duration-500 hidden" />
                 
@@ -801,12 +834,16 @@ function HomeSection({ onPlay }: { onPlay: (video: any) => void }) {
               onClick={() => onPlay(video)}
               className="aspect-square bg-[#2c2c2e] rounded-[24px] flex items-center justify-center relative overflow-hidden group cursor-pointer border border-[#3a3a3c]/30 hover:border-[rgba(var(--theme-rgb),0.3)] transition-colors shadow-sm"
             >
-              <video 
-                src={`${video.path}#t=0.1`} 
-                preload="metadata" 
-                className="absolute inset-0 w-full h-full object-cover pointer-events-none opacity-60"
-                muted playsInline
-              />
+              {video.thumbnail ? (
+                 <img src={video.thumbnail} className="absolute inset-0 w-full h-full object-cover opacity-80" alt="" />
+               ) : (
+                 <video 
+                   src={`${video.path}#t=0.1`} 
+                   preload="metadata" 
+                   className="absolute inset-0 w-full h-full object-cover pointer-events-none opacity-60"
+                   muted playsInline
+                 />
+               )}
               <Film className="w-12 h-12 text-white/20 relative z-10 hidden" />
                <div className="absolute bottom-3 left-3 right-3 z-20 flex justify-between items-end">
                   <p className="text-zinc-200 text-sm font-medium truncate bg-black/60 px-2 py-1 rounded-md backdrop-blur-md inline-block max-w-[70%]">
@@ -828,6 +865,10 @@ function LibrarySection({ onPlay }: { onPlay: (video: any) => void }) {
   const [activeView, setActiveView] = useState<{type: 'folder'|'playlist', id: number} | null>(null);
   const [sortBy, setSortBy] = useState("Default");
   const [showSortMenu, setShowSortMenu] = useState(false);
+
+  useBackButton(() => {
+     setActiveView(null);
+  }, !!activeView);
 
   if (activeView) {
      const viewData = activeView.type === 'folder' 
@@ -892,10 +933,20 @@ function LibrarySection({ onPlay }: { onPlay: (video: any) => void }) {
                className="bg-[#2c2c2e] rounded-3xl p-3 cursor-pointer group"
              >
                <div className="aspect-[4/5] bg-[#3a3a3c] rounded-2xl mb-3 relative overflow-hidden">
+                 {video.thumbnail ? (
+                   <img src={video.thumbnail} className="absolute inset-0 w-full h-full object-cover opacity-80" alt="" />
+                 ) : (
+                   <video 
+                     src={`${video.path}#t=0.1`} 
+                     preload="metadata" 
+                     className="absolute inset-0 w-full h-full object-cover pointer-events-none opacity-60"
+                     muted playsInline
+                   />
+                 )}
                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                 <Film className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-8 text-black/20" />
-                 <div className="absolute bottom-2 right-2 bg-black/60 backdrop-blur-md px-2 py-1 rounded-lg text-[10px] font-medium text-white/90">
-                   04:30
+                 <Film className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-8 text-white/10 hidden" />
+                 <div className="absolute bottom-2 right-2 bg-black/60 backdrop-blur-md px-2 py-1 rounded-lg text-[10px] font-medium text-white/90 shadow-md">
+                   {video.duration || "00:00"}
                  </div>
                </div>
                <h3 className="font-medium text-zinc-200 text-sm truncate px-1">{video.title}</h3>
@@ -1008,6 +1059,8 @@ function LibrarySection({ onPlay }: { onPlay: (video: any) => void }) {
 function SettingsSection() {
   const [settings, setSettings] = useState(SETTING_ITEMS);
   const [activePage, setActivePage] = useState<string | null>(null);
+
+  useBackButton(() => setActivePage(null), !!activePage);
 
   const handleSettingClick = (label: string) => {
     if (label === 'Appearance') {
@@ -1239,7 +1292,8 @@ export default function App() {
                 duration: formatDuration(Math.floor(v.duration / 1000)),
                 album: v.album || 'Gallery',
                 path: Capacitor.convertFileSrc(v.path),
-                subtitle: v.subtitle ? Capacitor.convertFileSrc(v.subtitle) : undefined
+                subtitle: v.subtitle ? Capacitor.convertFileSrc(v.subtitle) : undefined,
+                thumbnail: v.thumbnail ? Capacitor.convertFileSrc(v.thumbnail) : undefined
               };
             });
 
@@ -1275,29 +1329,15 @@ export default function App() {
     };
     loadNativeMedia();
   }, []);
-  useEffect(() => {
-    if (!Capacitor.isNativePlatform()) return;
-    const listener = CapacitorApp.addListener('backButton', ({ canGoBack }) => {
-      setPlayingVideo((currentVideo) => {
-        if (currentVideo) {
-          // Handled by video player plugin or just close UI
-          return null;
-        }
-        if (!canGoBack) {
-          CapacitorApp.exitApp();
-        } else {
-          window.history.back();
-        }
-        return currentVideo;
-      });
-    });
-    return () => { listener.then(l => l.remove()); };
-  }, []);
 
   const [activeTab, setActiveTab] = useState("home");
   const [direction, setDirection] = useState(0);
   const [playingVideo, setPlayingVideo] = useState<any>(null);
   const [currentColor, setCurrentColor] = useState(APP_COLORS[0]);
+
+  useBackButton(() => {
+    setActiveTab("home");
+  }, activeTab !== "home");
 
   const handleNextVideo = () => {
     if (!playingVideo) return;
