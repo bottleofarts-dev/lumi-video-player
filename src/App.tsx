@@ -141,16 +141,13 @@ function VideoPlayer({ video, onClose, onNext, onPrev }: { video: any; onClose: 
   const [quality, setQuality] = useState('1080p');
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
   const [availableSubtitles, setAvailableSubtitles] = useState(() => {
-    const defaultSubs = [
-      { id: 'en', name: 'English (Built-in)', type: 'embedded' },
-      { id: 'es', name: 'Spanish', type: 'embedded' }
-    ];
+    const defaultSubs = [];
     if (video.subtitle) {
       defaultSubs.push({ id: 'external', name: 'External File', type: 'imported', src: video.subtitle });
     }
     return defaultSubs;
   });
-  const [activeSubtitle, setActiveSubtitle] = useState('en');
+  const [activeSubtitle, setActiveSubtitle] = useState(video.subtitle ? 'external' : '');
 
   const [indicatorText, setIndicatorText] = useState<string | null>(null);
   const isDraggingProgress = useRef(false);
@@ -335,14 +332,7 @@ function VideoPlayer({ video, onClose, onNext, onPrev }: { video: any; onClose: 
           )}
         </AnimatePresence>
 
-        {/* Subtitles Overlay Layer */}
-        {subtitlesOn && (activeSubtitle === 'en' || activeSubtitle === 'es') && (
-           <div className={`absolute left-0 right-0 pointer-events-none flex items-center justify-center text-center p-4 transition-all duration-300 ${showControls ? 'bottom-28' : 'bottom-10'}`}>
-              <div className="bg-black/60 backdrop-blur-sm text-white px-4 py-2 rounded text-sm sm:text-base md:text-lg font-medium tracking-wide shadow-lg border border-white/10 inline-block max-w-[80%]">
-                 {activeSubtitle === 'es' ? 'Este es un subtítulo de ejemplo...' : 'This is a sample subtitle track...'}
-              </div>
-           </div>
-        )}
+
 
         {/* Controls Overlay */}
         <AnimatePresence>
@@ -569,7 +559,7 @@ function VideoPlayer({ video, onClose, onNext, onPrev }: { video: any; onClose: 
                     if (imported.length > 0) {
                       setAvailableSubtitles(prev => prev.filter(s => s.type !== 'imported'));
                       if (imported.find(s => s.id === activeSubtitle)) {
-                        setActiveSubtitle('en');
+                        setActiveSubtitle('');
                         setSubtitlesOn(false);
                       }
                     }
