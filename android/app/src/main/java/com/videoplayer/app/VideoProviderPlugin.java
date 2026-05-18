@@ -183,12 +183,16 @@ public class VideoProviderPlugin extends Plugin {
 
         try {
             android.media.MediaExtractor extractor = new android.media.MediaExtractor();
-            java.io.File file = new java.io.File(path);
-            if (file.exists()) {
-                extractor.setDataSource(path);
+            if (path.startsWith("content://")) {
+                extractor.setDataSource(getContext(), android.net.Uri.parse(path), null);
             } else {
-                call.reject("File does not exist: " + path);
-                return;
+                java.io.File file = new java.io.File(path);
+                if (file.exists()) {
+                    extractor.setDataSource(path);
+                } else {
+                    call.reject("File does not exist: " + path);
+                    return;
+                }
             }
 
             java.util.ArrayList<JSObject> subsList = new java.util.ArrayList<>();
@@ -197,7 +201,7 @@ public class VideoProviderPlugin extends Plugin {
             for (int i = 0; i < numTracks; i++) {
                 android.media.MediaFormat format = extractor.getTrackFormat(i);
                 String mime = format.getString(android.media.MediaFormat.KEY_MIME);
-                if (mime != null && mime.startsWith("text/")) {
+                if (mime != null && (mime.startsWith("text/") || mime.contains("subrip") || mime.contains("ass") || mime.contains("pgs") || mime.contains("ttml"))) {
                     JSObject sub = new JSObject();
                     sub.put("index", i);
                     sub.put("codec", mime);
@@ -243,7 +247,17 @@ public class VideoProviderPlugin extends Plugin {
 
         try {
             android.media.MediaExtractor extractor = new android.media.MediaExtractor();
-            extractor.setDataSource(path);
+            if (path.startsWith("content://")) {
+                extractor.setDataSource(getContext(), android.net.Uri.parse(path), null);
+            } else {
+                java.io.File file = new java.io.File(path);
+                if (file.exists()) {
+                    extractor.setDataSource(path);
+                } else {
+                    call.reject("File does not exist: " + path);
+                    return;
+                }
+            }
             extractor.selectTrack(streamIndex);
             
             android.media.MediaFormat format = extractor.getTrackFormat(streamIndex);
