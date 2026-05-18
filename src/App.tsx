@@ -129,7 +129,7 @@ const NAV_TABS = [
 function VideoPlayer({ video, onClose, onNext, onPrev }: { video: any; onClose: () => void; onNext?: () => void; onPrev?: () => void; }) {
   const [isPlaying, setIsPlaying] = useState(true);
   const [showControls, setShowControls] = useState(true);
-  const [progress, setProgress] = useState(30);
+  const [progress, setProgress] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
   const [volume, setVolume] = useState(100);
   const [subtitlesOn, setSubtitlesOn] = useState(false);
@@ -222,21 +222,14 @@ function VideoPlayer({ video, onClose, onNext, onPrev }: { video: any; onClose: 
     }
   };
 
+
+
   useEffect(() => {
-    let interval: any;
-    if (isPlaying) {
-      interval = setInterval(() => {
-        setProgress(p => {
-          if (p >= 100) {
-            setIsPlaying(false);
-            return 100;
-          }
-          return p + (playbackSpeed * 0.15); // Auto progress simulation
-        });
-      }, 100);
+    if (vidRef.current) {
+      vidRef.current.volume = volume / 100;
+      vidRef.current.muted = isMuted;
     }
-    return () => clearInterval(interval);
-  }, [isPlaying, playbackSpeed]);
+  }, [volume, isMuted]);
 
   const handleTap = () => {
     if (showSettings || showOptionsMenu || showSubtitlesMenu || showVolumeMenu) {
@@ -356,8 +349,16 @@ function VideoPlayer({ video, onClose, onNext, onPrev }: { video: any; onClose: 
                 onClick={(e) => e.stopPropagation()}
               >
                 <div className="flex items-center justify-between text-[11px] font-semibold text-white/60 mb-3 font-mono tracking-wider">
-                  <span>{Math.floor(progress / 100 * 12).toString().padStart(2, '0')}:{Math.floor((progress / 100 * 45) % 60).toString().padStart(2, '0')}</span>
-                  <span>{video.duration || '12:45'}</span>
+                  <span>
+                    {(() => {
+                      const totalSec = durationToSec(video.duration);
+                      const curSec = (progress / 100) * totalSec;
+                      const m = Math.floor(curSec / 60);
+                      const s = Math.floor(curSec % 60);
+                      return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+                    })()}
+                  </span>
+                  <span>{video.duration || '00:00'}</span>
                 </div>
                 
                 {/* Scrubber Area */}
@@ -368,7 +369,13 @@ function VideoPlayer({ video, onClose, onNext, onPrev }: { video: any; onClose: 
                     max="100"
                     step="0.1"
                     value={progress}
-                    onChange={(e) => setProgress(Number(e.target.value))}
+                    onChange={(e) => {
+                      const newProgress = Number(e.target.value);
+                      setProgress(newProgress);
+                      if (vidRef.current && vidRef.current.duration) {
+                        vidRef.current.currentTime = (newProgress / 100) * vidRef.current.duration;
+                      }
+                    }}
                     className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10 touch-none"
                   />
                   <div className="h-1.5 w-full bg-white/20 rounded-full relative transition-all group-hover:h-2 pointer-events-none">
@@ -1211,47 +1218,6 @@ const APP_COLORS = [
   { hex: "#818CF8", rgb: "129, 140, 248" }, // Indigo
 ];
 
-const NativeOrWebPlayer = ({ video, onClose, onNext, onPrev }: any) => {
-   useEffect(() => {
-      if (Capacitor.isNativePlatform()) {
-         let isCleanedUp = false;
-         const playNative = async () => {
-             try {
-                 let rawUrl = (video.rawPath || video.path);
-                 if (rawUrl && !rawUrl.startsWith('http') && !rawUrl.startsWith('content://')) {
-                     rawUrl = 'file://' + rawUrl;
-                 }
-                 const opts: any = { mode: 'fullscreen', url: rawUrl.replace('file://file://', 'file://') };
-                 if (video.rawSubtitle) {
-                     opts.subtitle = video.rawSubtitle && !video.rawSubtitle.startsWith('http') ? 'file://' + video.rawSubtitle : video.rawSubtitle;
-                     opts.subtitle = opts.subtitle.replace('file://file://', 'file://');
-                 }
-                 await CapacitorVideoPlayer.initPlayer(opts);
-             } catch(e) { console.error('playerr', e); onClose(); }
-         };
-         
-         const listeners = [
-            (CapacitorVideoPlayer as any).addListener('jeepCapVideoPlayerExit', () => {
-               if (!isCleanedUp) onClose();
-            }),
-            (CapacitorVideoPlayer as any).addListener('jeepCapVideoPlayerEnded', () => {
-               if (!isCleanedUp) onClose();
-            })
-         ];
-         
-         playNative();
-         
-         return () => {
-            isCleanedUp = true;
-            listeners.forEach(l => l.then(sub => sub.remove()));
-            CapacitorVideoPlayer.stopAllPlayers().catch(()=>{});
-         };
-      }
-   }, [video]);
-   
-   if (Capacitor.isNativePlatform()) return null; // Native overlay is handled
-   return <VideoPlayer video={video} onClose={onClose} onNext={onNext} onPrev={onPrev} />;
-};
 
 export default function App() {
   const [isNativeReady, setIsNativeReady] = useState(false);
@@ -1403,7 +1369,7 @@ export default function App() {
 
       <AnimatePresence>
         {playingVideo && (
-          <NativeOrWebPlayer 
+           <VideoPlayer 
             video={playingVideo} 
             onClose={() => setPlayingVideo(null)} 
             onNext={handleNextVideo}
