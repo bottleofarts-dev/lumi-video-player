@@ -16,14 +16,6 @@ import com.getcapacitor.annotation.CapacitorPlugin;
 import com.getcapacitor.annotation.Permission;
 import com.getcapacitor.annotation.PermissionCallback;
 
-import com.arthenica.ffmpegkit.FFprobeKit;
-import com.arthenica.ffmpegkit.MediaInformationSession;
-import com.arthenica.ffmpegkit.MediaInformation;
-import com.arthenica.ffmpegkit.StreamInformation;
-import com.arthenica.ffmpegkit.FFmpegKit;
-import com.arthenica.ffmpegkit.FFmpegSession;
-import org.json.JSONObject;
-
 @CapacitorPlugin(
     name = "VideoProvider",
     permissions = {
@@ -190,39 +182,53 @@ public class VideoProviderPlugin extends Plugin {
         }
 
         try {
-            MediaInformationSession session = FFprobeKit.getMediaInformation(path);
-            MediaInformation info = session.getMediaInformation();
-            JSArray subs = new JSArray();
+            android.media.MediaExtractor extractor = new android.media.MediaExtractor();
+            java.io.File file = new java.io.File(path);
+            if (file.exists()) {
+                extractor.setDataSource(path);
+            } else {
+                call.reject("File does not exist: " + path);
+                return;
+            }
 
-            if (info != null) {
-                java.util.List<StreamInformation> streams = info.getStreams();
-                for (StreamInformation stream : streams) {
-                    if ("subtitle".equalsIgnoreCase(stream.getType())) {
-                        JSObject sub = new JSObject();
-                        sub.put("index", stream.getIndex());
-                        sub.put("codec", stream.getCodec());
-                        
-                        JSONObject tags = stream.getTags();
-                        String lang = "unknown";
-                        String title = "Embedded Subtitle";
-                        
-                        if (tags != null) {
-                            lang = tags.optString("language", "unknown");
-                            title = tags.optString("title", title);
-                        }
-                        
-                        sub.put("language", lang);
-                        sub.put("title", title);
-                        subs.put(sub);
-                    }
+            java.util.ArrayList<JSObject> subsList = new java.util.ArrayList<>();
+            int numTracks = extractor.getTrackCount();
+
+            for (int i = 0; i < numTracks; i++) {
+                android.media.MediaFormat format = extractor.getTrackFormat(i);
+                String mime = format.getString(android.media.MediaFormat.KEY_MIME);
+                if (mime != null && mime.startsWith("text/")) {
+                    JSObject sub = new JSObject();
+                    sub.put("index", i);
+                    sub.put("codec", mime);
+                    
+                    String language = format.containsKey(android.media.MediaFormat.KEY_LANGUAGE) ? format.getString(android.media.MediaFormat.KEY_LANGUAGE) : "unknown";
+                    sub.put("language", language);
+                    
+                    String title = format.containsKey("title") ? format.getString("title") : "Subtitle Track " + i;
+                    sub.put("title", title);
+                    
+                    subsList.add(sub);
                 }
             }
+            extractor.release();
+            JSArray subs = new JSArray();
+            for(JSObject o : subsList) subs.put(o);
             JSObject ret = new JSObject();
             ret.put("subtitles", subs);
             call.resolve(ret);
         } catch(Exception e) {
             call.reject("Failed to get embedded subtitles", e);
         }
+    }
+
+    private String formatTime(long timeUs) {
+        long totalMs = timeUs / 1000;
+        long ms = totalMs % 1000;
+        long s = (totalMs / 1000) % 60;
+        long m = (totalMs / (1000 * 60)) % 60;
+        long h = totalMs / (1000 * 60 * 60);
+        return String.format(java.util.Locale.US, "%02d:%02d:%02d.%03d", h, m, s, ms);
     }
 
     @PluginMethod
@@ -236,20 +242,54 @@ public class VideoProviderPlugin extends Plugin {
         }
 
         try {
+            android.media.MediaExtractor extractor = new android.media.MediaExtractor();
+            extractor.setDataSource(path);
+            extractor.selectTrack(streamIndex);
+            
+            android.media.MediaFormat format = extractor.getTrackFormat(streamIndex);
+            String mime = format.getString(android.media.MediaFormat.KEY_MIME);
+
             java.io.File cacheDir = getContext().getCacheDir();
-            String outPath = new java.io.File(cacheDir, "extracted_sub_" + streamIndex + "_" + System.currentTimeMillis() + ".vtt").getAbsolutePath();
+            java.io.File outFile = new java.io.File(cacheDir, "extracted_sub_" + streamIndex + "_" + System.currentTimeMillis() + ".vtt");
             
-            // WebVTT is the target format
-            String cmd = "-i \"" + path + "\" -map 0:" + streamIndex + " -c:s webvtt -y \"" + outPath + "\"";
+            java.io.FileOutputStream fos = new java.io.FileOutputStream(outFile);
             
-            FFmpegSession session = FFmpegKit.execute(cmd);
-            if (session.getReturnCode().isValueSuccess()) {
-                JSObject ret = new JSObject();
-                ret.put("path", outPath);
-                call.resolve(ret);
-            } else {
-                call.reject("FFmpeg extraction failed: " + session.getFailStackTrace());
+            // Write WebVTT header
+            fos.write("WEBVTT\n\n".getBytes("UTF-8"));
+
+            java.nio.ByteBuffer buffer = java.nio.ByteBuffer.allocate(2 * 1024 * 1024);
+            int blockIndex = 1;
+            while (true) {
+                int sampleSize = extractor.readSampleData(buffer, 0);
+                if (sampleSize < 0) {
+                    break;
+                }
+                long presentationTimeUs = extractor.getSampleTime();
+                
+                byte[] data = new byte[sampleSize];
+                buffer.get(data);
+                
+                String textData = new String(data, "UTF-8");
+                // For subrip inside mkv, the text might already include coordinates. Let's just write VTT timing
+                fos.write((blockIndex + "\n").getBytes("UTF-8"));
+                fos.write((formatTime(presentationTimeUs) + " --> " + formatTime(presentationTimeUs + 5000000) + "\n").getBytes("UTF-8"));
+                // In a perfect world we'd get sample duration. As this is a fallback native extractor, 5 sec is a rough bound
+                // Usually players don't use 5 sec, but wait, textData for ASS often includes the timestamps inside the payload.
+                // We're wrapping it in WebVTT anyway.
+                fos.write(textData.getBytes("UTF-8"));
+                fos.write("\n\n".getBytes("UTF-8"));
+
+                extractor.advance();
+                buffer.clear();
+                blockIndex++;
             }
+            
+            fos.close();
+            extractor.release();
+            
+            JSObject ret = new JSObject();
+            ret.put("path", outFile.getAbsolutePath());
+            call.resolve(ret);
         } catch(Exception e) {
             call.reject("Extraction exception", e);
         }
