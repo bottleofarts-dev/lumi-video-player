@@ -54,15 +54,21 @@ if (typeof window !== 'undefined') {
 }
 
 function useBackButton(handler: () => void, enabled: boolean) {
+  const handlerRef = useRef(handler);
+  useEffect(() => {
+    handlerRef.current = handler;
+  }, [handler]);
+
   useEffect(() => {
     if (!enabled || !Capacitor.isNativePlatform()) return;
     const handlers = (window as any).backHandlers;
-    handlers.push(handler);
+    const currentHandler = () => handlerRef.current();
+    handlers.push(currentHandler);
     return () => {
-      const idx = handlers.indexOf(handler);
+      const idx = handlers.indexOf(currentHandler);
       if (idx !== -1) handlers.splice(idx, 1);
     };
-  }, [handler, enabled]);
+  }, [enabled]);
 }
 
 const VideoProvider = registerPlugin<any>('VideoProvider');
@@ -818,11 +824,6 @@ function HomeSection({ onPlay }: { onPlay: (video: any) => void }) {
           {filteredAll.map((video, idx) => (
             <motion.div
               key={video.id}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: "-50px" }}
-              transition={{ duration: 0.4, delay: (idx % 2) * 0.1 }}
-              whileHover={{ scale: 1.03 }}
               whileTap={{ scale: 0.97 }}
               onClick={() => onPlay(video)}
               className="aspect-square bg-[#2c2c2e] rounded-[24px] flex items-center justify-center relative overflow-hidden group cursor-pointer border border-[#3a3a3c]/30 hover:border-[rgba(var(--theme-rgb),0.3)] transition-colors shadow-sm"
@@ -914,9 +915,6 @@ function LibrarySection({ onPlay }: { onPlay: (video: any) => void }) {
               return sortedVideos.map(video => (
              <motion.div
                key={video.id}
-               initial={{ opacity: 0, y: 20 }}
-               whileInView={{ opacity: 1, y: 0 }}
-               viewport={{ once: true }}
                whileTap={{ scale: 0.95 }}
                onClick={() => onPlay(video)}
                className="bg-[#2c2c2e] rounded-3xl p-3 cursor-pointer group"
@@ -1219,9 +1217,14 @@ const NativeOrWebPlayer = ({ video, onClose, onNext, onPrev }: any) => {
          let isCleanedUp = false;
          const playNative = async () => {
              try {
-                 const opts: any = { mode: 'fullscreen', url: video.path };
-                 if (video.subtitle) {
-                     opts.subtitle = video.subtitle;
+                 let rawUrl = (video.rawPath || video.path);
+                 if (rawUrl && !rawUrl.startsWith('http') && !rawUrl.startsWith('content://')) {
+                     rawUrl = 'file://' + rawUrl;
+                 }
+                 const opts: any = { mode: 'fullscreen', url: rawUrl.replace('file://file://', 'file://') };
+                 if (video.rawSubtitle) {
+                     opts.subtitle = video.rawSubtitle && !video.rawSubtitle.startsWith('http') ? 'file://' + video.rawSubtitle : video.rawSubtitle;
+                     opts.subtitle = opts.subtitle.replace('file://file://', 'file://');
                  }
                  await CapacitorVideoPlayer.initPlayer(opts);
              } catch(e) { console.error('playerr', e); onClose(); }
@@ -1274,7 +1277,9 @@ export default function App() {
                 duration: formatDuration(Math.floor(v.duration / 1000)),
                 album: v.album || 'Gallery',
                 path: Capacitor.convertFileSrc(v.path),
+                rawPath: v.path,
                 subtitle: v.subtitle ? Capacitor.convertFileSrc(v.subtitle) : undefined,
+                rawSubtitle: v.subtitle,
                 thumbnail: v.thumbnail ? Capacitor.convertFileSrc(v.thumbnail) : undefined
               };
             });
