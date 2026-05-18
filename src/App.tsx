@@ -148,6 +148,7 @@ function VideoPlayer({ video, onClose, onNext, onPrev }: { video: any; onClose: 
     return defaultSubs;
   });
   const [activeSubtitle, setActiveSubtitle] = useState(video.subtitle ? 'external' : '');
+  const [isExtractingSub, setIsExtractingSub] = useState(false);
 
   const [indicatorText, setIndicatorText] = useState<string | null>(null);
   const isDraggingProgress = useRef(false);
@@ -157,6 +158,57 @@ function VideoPlayer({ video, onClose, onNext, onPrev }: { video: any; onClose: 
   const isHolding = useRef(false); const vidRef = useRef<HTMLVideoElement>(null);
   const holdTriggeredRef = useRef(false);
   const originalSpeedRef = useRef(1);
+
+  useEffect(() => {
+    const checkEmbeddedSubs = async () => {
+      if (!Capacitor.isNativePlatform() || !video.rawPath) return;
+      try {
+        const res = await VideoProvider.getEmbeddedSubtitles({ path: video.rawPath });
+        if (res?.subtitles && res.subtitles.length > 0) {
+          const newSubs = res.subtitles.map((s: any) => ({
+            id: `embedded_${s.index}`,
+            name: `${s.title && s.title !== 'Embedded Subtitle' ? s.title + ' ' : ''}[${s.language}]`.trim() || `Track ${s.index}`,
+            type: 'embedded_native',
+            index: s.index,
+            src: ''
+          }));
+          setAvailableSubtitles((prev: any[]) => {
+            const additions = newSubs.filter((ns: any) => !prev.find((p: any) => p.id === ns.id));
+            if (additions.length > 0) return [...prev, ...additions];
+            return prev;
+          });
+        }
+      } catch (e) {
+        console.error('Error fetching embedded subs', e);
+      }
+    };
+    checkEmbeddedSubs();
+  }, [video]);
+
+  const handleSelectSubtitle = async (sub: any) => {
+    if (sub.type === 'embedded_native' && !sub.src) {
+      if (isExtractingSub) return;
+      setIsExtractingSub(true);
+      try {
+        const res = await VideoProvider.extractSubtitle({ path: video.rawPath, index: sub.index });
+        const extractedSrc = Capacitor.convertFileSrc(res.path);
+        
+        setAvailableSubtitles((prev: any[]) => prev.map((s: any) => 
+          s.id === sub.id ? { ...s, src: extractedSrc } : s
+        ));
+        
+        setActiveSubtitle(sub.id);
+        setSubtitlesOn(true);
+      } catch (e) {
+        console.error("Extraction failed", e);
+      } finally {
+        setIsExtractingSub(false);
+      }
+    } else {
+      setActiveSubtitle(sub.id);
+      setSubtitlesOn(true);
+    }
+  };
 
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     holdTriggeredRef.current = false;
@@ -511,17 +563,28 @@ function VideoPlayer({ video, onClose, onNext, onPrev }: { video: any; onClose: 
                    {availableSubtitles.map(sub => (
                      <button
                        key={sub.id}
-                       onClick={() => { setActiveSubtitle(sub.id); setSubtitlesOn(true); }}
+                       onClick={() => handleSelectSubtitle(sub)}
+                       disabled={isExtractingSub}
                        className={`w-full text-left px-4 py-3 rounded-xl text-sm font-medium transition-colors flex items-center justify-between ${
                          activeSubtitle === sub.id && subtitlesOn ? 'bg-[var(--theme-color)] text-zinc-900' : 'bg-white/5 text-zinc-300 hover:bg-white/10'
-                       }`}
+                       } ${isExtractingSub ? 'opacity-50 cursor-not-allowed' : ''}`}
                      >
-                       <span>{sub.name}</span>
+                       <span className="flex items-center gap-2">
+                         {sub.name}
+                         {isExtractingSub && sub.type === 'embedded_native' && !sub.src && (
+                           <span className="w-3 h-3 border-2 border-white/20 border-t-white rounded-full animate-spin"></span>
+                         )}
+                       </span>
                        <div className="flex items-center gap-2">
                          {sub.type === 'imported' && (
                             <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-md ${
                               activeSubtitle === sub.id && subtitlesOn ? 'bg-black/20 text-zinc-900' : 'bg-black/40 text-zinc-300'
                             }`}>Imported</span>
+                         )}
+                         {sub.type === 'embedded_native' && (
+                            <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-md ${
+                              activeSubtitle === sub.id && subtitlesOn ? 'bg-black/20 text-zinc-900' : 'bg-black/40 text-zinc-300'
+                            }`}>Embedded</span>
                          )}
                        </div>
                      </button>

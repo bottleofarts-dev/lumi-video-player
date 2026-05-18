@@ -16,6 +16,14 @@ import com.getcapacitor.annotation.CapacitorPlugin;
 import com.getcapacitor.annotation.Permission;
 import com.getcapacitor.annotation.PermissionCallback;
 
+import com.arthenica.ffmpegkit.FFprobeKit;
+import com.arthenica.ffmpegkit.MediaInformationSession;
+import com.arthenica.ffmpegkit.MediaInformation;
+import com.arthenica.ffmpegkit.StreamInformation;
+import com.arthenica.ffmpegkit.FFmpegKit;
+import com.arthenica.ffmpegkit.FFmpegSession;
+import org.json.JSONObject;
+
 @CapacitorPlugin(
     name = "VideoProvider",
     permissions = {
@@ -171,5 +179,79 @@ public class VideoProviderPlugin extends Plugin {
         JSObject ret = new JSObject();
         ret.put("videos", videos);
         call.resolve(ret);
+    }
+
+    @PluginMethod
+    public void getEmbeddedSubtitles(PluginCall call) {
+        String path = call.getString("path");
+        if (path == null) {
+            call.reject("Path is required");
+            return;
+        }
+
+        try {
+            MediaInformationSession session = FFprobeKit.getMediaInformation(path);
+            MediaInformation info = session.getMediaInformation();
+            JSArray subs = new JSArray();
+
+            if (info != null) {
+                java.util.List<StreamInformation> streams = info.getStreams();
+                for (StreamInformation stream : streams) {
+                    if ("subtitle".equalsIgnoreCase(stream.getType())) {
+                        JSObject sub = new JSObject();
+                        sub.put("index", stream.getIndex());
+                        sub.put("codec", stream.getCodec());
+                        
+                        JSONObject tags = stream.getTags();
+                        String lang = "unknown";
+                        String title = "Embedded Subtitle";
+                        
+                        if (tags != null) {
+                            lang = tags.optString("language", "unknown");
+                            title = tags.optString("title", title);
+                        }
+                        
+                        sub.put("language", lang);
+                        sub.put("title", title);
+                        subs.put(sub);
+                    }
+                }
+            }
+            JSObject ret = new JSObject();
+            ret.put("subtitles", subs);
+            call.resolve(ret);
+        } catch(Exception e) {
+            call.reject("Failed to get embedded subtitles", e);
+        }
+    }
+
+    @PluginMethod
+    public void extractSubtitle(PluginCall call) {
+        String path = call.getString("path");
+        Integer streamIndex = call.getInt("index");
+        
+        if (path == null || streamIndex == null) {
+            call.reject("Path and index are required");
+            return;
+        }
+
+        try {
+            java.io.File cacheDir = getContext().getCacheDir();
+            String outPath = new java.io.File(cacheDir, "extracted_sub_" + streamIndex + "_" + System.currentTimeMillis() + ".vtt").getAbsolutePath();
+            
+            // WebVTT is the target format
+            String cmd = "-i \"" + path + "\" -map 0:" + streamIndex + " -c:s webvtt -y \"" + outPath + "\"";
+            
+            FFmpegSession session = FFmpegKit.execute(cmd);
+            if (session.getReturnCode().isValueSuccess()) {
+                JSObject ret = new JSObject();
+                ret.put("path", outPath);
+                call.resolve(ret);
+            } else {
+                call.reject("FFmpeg extraction failed: " + session.getFailStackTrace());
+            }
+        } catch(Exception e) {
+            call.reject("Extraction exception", e);
+        }
     }
 }
