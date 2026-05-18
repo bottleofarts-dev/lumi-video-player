@@ -188,7 +188,12 @@ function VideoPlayer({ video, onClose, onNext, onPrev }: { video: any; onClose: 
     }
 
     const rect = e.currentTarget.getBoundingClientRect();
-    const isLeft = e.clientX < rect.left + rect.width / 2;
+    let isLeft = false;
+    if (isFullscreen) {
+      isLeft = e.clientY > rect.top + rect.height / 2;
+    } else {
+      isLeft = e.clientX < rect.left + rect.width / 2;
+    }
     const side = isLeft ? 'left' : 'right';
 
     if (tapsRef.current.side !== side) {
@@ -213,12 +218,14 @@ function VideoPlayer({ video, onClose, onNext, onPrev }: { video: any; onClose: 
         const finalSeconds = (tapsRef.current.count - 1) * 10;
         
         if (finalSeconds > 0) {
-          if(vidRef.current && vidRef.current.duration) vidRef.current.currentTime += (finalSeconds * sign); setProgress(p => Math.max(0, Math.min(100, p + (finalSeconds * sign * 0.5))));
+          if(vidRef.current && vidRef.current.duration) {
+            vidRef.current.currentTime = Math.max(0, Math.min(vidRef.current.duration, vidRef.current.currentTime + (finalSeconds * sign)));
+          }
         }
         
         setIndicatorText(null);
         tapsRef.current = { side: '', count: 0 };
-      }, 500);
+      }, 400);
     }
   };
 
@@ -382,7 +389,7 @@ function VideoPlayer({ video, onClose, onNext, onPrev }: { video: any; onClose: 
                     <div className="absolute inset-0 rounded-full overflow-hidden">
                       <div className="absolute left-0 h-full bg-white/30 w-[60%] rounded-full"></div>
                       <div 
-                        className="absolute left-0 h-full bg-[var(--theme-color)] rounded-full transition-all duration-100 ease-linear"
+                        className="absolute left-0 h-full bg-[var(--theme-color)] rounded-full transition-colors"
                         style={{ width: `${progress}%` }}
                       ></div>
                     </div>
@@ -778,15 +785,10 @@ function HomeSection({ onPlay }: { onPlay: (video: any) => void }) {
               <p className="text-zinc-500 text-sm py-4">No recent videos found.</p>
             )}
             {filteredRecent.map((video, idx) => (
-              <motion.div
+              <div
                 key={video.id}
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.4, delay: 0.1 + idx * 0.1 }}
-                whileHover={{ y: -4, scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
                 onClick={() => onPlay(video)}
-                className="snap-center flex-none w-[280px] sm:w-[320px] aspect-video bg-gradient-to-br from-[#3a3a3c] to-[#2c2c2e] rounded-3xl flex items-center justify-center relative overflow-hidden group cursor-pointer shadow-lg shadow-black/20"
+                className="snap-center flex-none w-[280px] sm:w-[320px] aspect-video bg-gradient-to-br from-[#3a3a3c] to-[#2c2c2e] rounded-3xl flex items-center justify-center relative overflow-hidden group cursor-pointer shadow-lg shadow-black/20 hover:-translate-y-1 hover:scale-[1.02] active:scale-[0.98] transition-all duration-300"
               >
                 {/* Simulated playback progress visual */}
                 <div className="absolute bottom-0 left-0 h-1 bg-black/40 w-full z-20">
@@ -807,7 +809,7 @@ function HomeSection({ onPlay }: { onPlay: (video: any) => void }) {
                    <p className="text-white font-medium truncate drop-shadow-md">{video.title}</p>
                    <p className="text-zinc-300 font-mono text-xs drop-shadow-md">{video.duration}</p>
                 </div>
-              </motion.div>
+              </div>
             ))}
           </div>
         </div>
@@ -829,11 +831,10 @@ function HomeSection({ onPlay }: { onPlay: (video: any) => void }) {
             <p className="text-zinc-500 text-sm py-4 col-span-2 text-center">No videos match your search.</p>
           )}
           {filteredAll.map((video, idx) => (
-            <motion.div
+            <div
               key={video.id}
-              whileTap={{ scale: 0.97 }}
               onClick={() => onPlay(video)}
-              className="aspect-square bg-[#2c2c2e] rounded-[24px] flex items-center justify-center relative overflow-hidden group cursor-pointer border border-[#3a3a3c]/30 hover:border-[rgba(var(--theme-rgb),0.3)] transition-colors shadow-sm"
+              className="aspect-square bg-[#2c2c2e] rounded-[24px] flex items-center justify-center relative overflow-hidden group cursor-pointer border border-[#3a3a3c]/30 hover:border-[rgba(var(--theme-rgb),0.3)] hover:scale-[1.03] active:scale-[0.97] transition-all shadow-sm"
             >
               {video.thumbnail ? (
                  <img src={video.thumbnail} className="absolute inset-0 w-full h-full object-cover opacity-80" alt="" />
@@ -848,7 +849,7 @@ function HomeSection({ onPlay }: { onPlay: (video: any) => void }) {
                     {video.duration}
                   </p>
                </div>
-            </motion.div>
+            </div>
           ))}
         </div>
       </section>
@@ -920,11 +921,10 @@ function LibrarySection({ onPlay }: { onPlay: (video: any) => void }) {
               if (sortBy === "Duration (Longest)") sortedVideos.sort((a,b) => durationToSec(b.duration || "") - durationToSec(a.duration || ""));
               if (sortBy === "Duration (Shortest)") sortedVideos.sort((a,b) => durationToSec(a.duration || "") - durationToSec(b.duration || ""));
               return sortedVideos.map(video => (
-             <motion.div
+             <div
                key={video.id}
-               whileTap={{ scale: 0.95 }}
                onClick={() => onPlay(video)}
-               className="bg-[#2c2c2e] rounded-3xl p-3 cursor-pointer group"
+               className="bg-[#2c2c2e] rounded-3xl p-3 cursor-pointer group active:scale-[0.95] transition-transform"
              >
                <div className="aspect-[4/5] bg-[#3a3a3c] rounded-2xl mb-3 relative overflow-hidden">
                  {video.thumbnail ? (
@@ -937,7 +937,7 @@ function LibrarySection({ onPlay }: { onPlay: (video: any) => void }) {
                  </div>
                </div>
                <h3 className="font-medium text-zinc-200 text-sm truncate px-1">{video.title}</h3>
-              </motion.div>
+              </div>
             ))})()}
           </div>
        </motion.div>
