@@ -786,15 +786,8 @@ function HomeSection({ onPlay }: { onPlay: (video: any) => void }) {
                 {video.thumbnail ? (
                    <img src={video.thumbnail} className="absolute inset-0 w-full h-full object-cover opacity-80" alt="" />
                  ) : (
-                   <video 
-                     src={`${video.path}#t=0.1`} 
-                     preload="metadata" 
-                     className="absolute inset-0 w-full h-full object-cover pointer-events-none opacity-60"
-                     muted playsInline
-                   />
+                   <Film className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-12 h-12 text-white/10" />
                  )}
-
-                <Clapperboard className="w-20 h-20 text-white/20 relative z-10 transition-colors duration-500 hidden" />
                 
                 {/* Overlay data ALWAYS VISIBLE */}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent flex flex-col justify-end p-4 z-20">
@@ -837,14 +830,8 @@ function HomeSection({ onPlay }: { onPlay: (video: any) => void }) {
               {video.thumbnail ? (
                  <img src={video.thumbnail} className="absolute inset-0 w-full h-full object-cover opacity-80" alt="" />
                ) : (
-                 <video 
-                   src={`${video.path}#t=0.1`} 
-                   preload="metadata" 
-                   className="absolute inset-0 w-full h-full object-cover pointer-events-none opacity-60"
-                   muted playsInline
-                 />
+                 <Film className="w-12 h-12 text-white/10" />
                )}
-              <Film className="w-12 h-12 text-white/20 relative z-10 hidden" />
                <div className="absolute bottom-3 left-3 right-3 z-20 flex justify-between items-end">
                   <p className="text-zinc-200 text-sm font-medium truncate bg-black/60 px-2 py-1 rounded-md backdrop-blur-md inline-block max-w-[70%]">
                     {video.title}
@@ -918,7 +905,9 @@ function LibrarySection({ onPlay }: { onPlay: (video: any) => void }) {
           </div>
          <div className="grid grid-cols-2 gap-4">
            {(() => {
-              let sortedVideos = [...ALL_VIDEOS];
+              let sortedVideos = ALL_VIDEOS.filter(v => 
+                activeView.type === 'folder' && viewData ? v.album === viewData.name : true
+              );
               if (sortBy === "A-Z") sortedVideos.sort((a,b) => a.title.localeCompare(b.title));
               if (sortBy === "Duration (Longest)") sortedVideos.sort((a,b) => durationToSec(b.duration || "") - durationToSec(a.duration || ""));
               if (sortBy === "Duration (Shortest)") sortedVideos.sort((a,b) => durationToSec(a.duration || "") - durationToSec(b.duration || ""));
@@ -936,15 +925,8 @@ function LibrarySection({ onPlay }: { onPlay: (video: any) => void }) {
                  {video.thumbnail ? (
                    <img src={video.thumbnail} className="absolute inset-0 w-full h-full object-cover opacity-80" alt="" />
                  ) : (
-                   <video 
-                     src={`${video.path}#t=0.1`} 
-                     preload="metadata" 
-                     className="absolute inset-0 w-full h-full object-cover pointer-events-none opacity-60"
-                     muted playsInline
-                   />
+                   <Film className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-8 text-white/10" />
                  )}
-                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                 <Film className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-8 text-white/10 hidden" />
                  <div className="absolute bottom-2 right-2 bg-black/60 backdrop-blur-md px-2 py-1 rounded-lg text-[10px] font-medium text-white/90 shadow-md">
                    {video.duration || "00:00"}
                  </div>
