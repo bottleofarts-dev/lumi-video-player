@@ -147,6 +147,7 @@ function VideoPlayer({ video, onClose, onNext, onPrev }: { video: any; onClose: 
   const [activeSubtitle, setActiveSubtitle] = useState('en');
 
   const [indicatorText, setIndicatorText] = useState<string | null>(null);
+  const isDraggingProgress = useRef(false);
   const tapTimeoutRef = useRef<any>(null);
   const tapsRef = useRef({ side: '', count: 0 });
   const holdTimeoutRef = useRef<any>(null);
@@ -190,7 +191,7 @@ function VideoPlayer({ video, onClose, onNext, onPrev }: { video: any; onClose: 
     const rect = e.currentTarget.getBoundingClientRect();
     let isLeft = false;
     if (isFullscreen) {
-      isLeft = e.clientY > rect.top + rect.height / 2;
+      isLeft = e.clientY < rect.top + rect.height / 2;
     } else {
       isLeft = e.clientX < rect.left + rect.width / 2;
     }
@@ -270,7 +271,7 @@ function VideoPlayer({ video, onClose, onNext, onPrev }: { video: any; onClose: 
         onPointerCancel={handlePointerLeave}
         onClick={handlePlayerClick}
       >
-        {video.path ? <video src={video.path} autoPlay={isPlaying} ref={vidRef} className="w-full aspect-video bg-black z-0 object-contain" onTimeUpdate={(e)=>setProgress((e.target.currentTime/e.target.duration)*100)} onEnded={()=>{if(onNext) onNext(); else onClose();}} /> : <motion.div animate={{scale:isPlaying?[1,1.05,1]:1}} transition={{duration:15,repeat:Infinity,ease:"linear"}} className="w-full aspect-video bg-gradient-to-br from-zinc-800 via-zinc-900 to-black z-0 relative flex items-center justify-center"><Film className="w-24 h-24 text-white/10"/></motion.div>}
+        {video.path ? <video src={video.path} autoPlay={isPlaying} ref={vidRef} className="w-full aspect-video bg-black z-0 object-contain" onTimeUpdate={(e)=>{ if(!isDraggingProgress.current) setProgress((e.target.currentTime/e.target.duration)*100); }} onEnded={()=>{if(onNext) onNext(); else onClose();}} /> : <motion.div animate={{scale:isPlaying?[1,1.05,1]:1}} transition={{duration:15,repeat:Infinity,ease:"linear"}} className="w-full aspect-video bg-gradient-to-br from-zinc-800 via-zinc-900 to-black z-0 relative flex items-center justify-center"><Film className="w-24 h-24 text-white/10"/></motion.div>}
         
         {/* Indicator UI for skips/speeds */}
         <AnimatePresence>
@@ -376,6 +377,10 @@ function VideoPlayer({ video, onClose, onNext, onPrev }: { video: any; onClose: 
                     max="100"
                     step="0.1"
                     value={progress}
+                    onPointerDown={() => isDraggingProgress.current = true}
+                    onPointerUp={() => isDraggingProgress.current = false}
+                    onTouchStart={() => isDraggingProgress.current = true}
+                    onTouchEnd={() => isDraggingProgress.current = false}
                     onChange={(e) => {
                       const newProgress = Number(e.target.value);
                       setProgress(newProgress);
@@ -799,7 +804,7 @@ function HomeSection({ onPlay }: { onPlay: (video: any) => void }) {
                 </div>
 
                 {video.thumbnail ? (
-                   <img src={video.thumbnail} className="absolute inset-0 w-full h-full object-cover opacity-80" alt="" />
+                   <img src={video.thumbnail} loading="lazy" className="absolute inset-0 w-full h-full object-cover opacity-80" alt="" />
                  ) : (
                    <Film className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-12 h-12 text-white/10" />
                  )}
@@ -837,7 +842,7 @@ function HomeSection({ onPlay }: { onPlay: (video: any) => void }) {
               className="aspect-square bg-[#2c2c2e] rounded-[24px] flex items-center justify-center relative overflow-hidden group cursor-pointer border border-[#3a3a3c]/30 hover:border-[rgba(var(--theme-rgb),0.3)] hover:scale-[1.03] active:scale-[0.97] transition-all shadow-sm"
             >
               {video.thumbnail ? (
-                 <img src={video.thumbnail} className="absolute inset-0 w-full h-full object-cover opacity-80" alt="" />
+                 <img src={video.thumbnail} loading="lazy" className="absolute inset-0 w-full h-full object-cover opacity-80" alt="" />
                ) : (
                  <Film className="w-12 h-12 text-white/10" />
                )}
@@ -928,7 +933,7 @@ function LibrarySection({ onPlay }: { onPlay: (video: any) => void }) {
              >
                <div className="aspect-[4/5] bg-[#3a3a3c] rounded-2xl mb-3 relative overflow-hidden">
                  {video.thumbnail ? (
-                   <img src={video.thumbnail} className="absolute inset-0 w-full h-full object-cover opacity-80" alt="" />
+                   <img src={video.thumbnail} loading="lazy" className="absolute inset-0 w-full h-full object-cover opacity-80" alt="" />
                  ) : (
                    <Film className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-8 text-white/10" />
                  )}
