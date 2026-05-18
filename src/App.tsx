@@ -140,10 +140,16 @@ function VideoPlayer({ video, onClose, onNext, onPrev }: { video: any; onClose: 
   const [showVolumeMenu, setShowVolumeMenu] = useState(false);
   const [quality, setQuality] = useState('1080p');
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
-  const [availableSubtitles, setAvailableSubtitles] = useState([
-    { id: 'en', name: 'English (Built-in)', type: 'embedded' },
-    { id: 'es', name: 'Spanish', type: 'embedded' }
-  ]);
+  const [availableSubtitles, setAvailableSubtitles] = useState(() => {
+    const defaultSubs = [
+      { id: 'en', name: 'English (Built-in)', type: 'embedded' },
+      { id: 'es', name: 'Spanish', type: 'embedded' }
+    ];
+    if (video.subtitle) {
+      defaultSubs.push({ id: 'external', name: 'External File', type: 'imported', src: video.subtitle });
+    }
+    return defaultSubs;
+  });
   const [activeSubtitle, setActiveSubtitle] = useState('en');
 
   const [indicatorText, setIndicatorText] = useState<string | null>(null);
@@ -191,7 +197,7 @@ function VideoPlayer({ video, onClose, onNext, onPrev }: { video: any; onClose: 
     const rect = e.currentTarget.getBoundingClientRect();
     let isLeft = false;
     if (isFullscreen) {
-      isLeft = e.clientY < rect.top + rect.height / 2;
+      isLeft = e.clientY > rect.top + rect.height / 2;
     } else {
       isLeft = e.clientX < rect.left + rect.width / 2;
     }
@@ -239,6 +245,18 @@ function VideoPlayer({ video, onClose, onNext, onPrev }: { video: any; onClose: 
     }
   }, [volume, isMuted]);
 
+  useEffect(() => {
+    if (vidRef.current && vidRef.current.textTracks) {
+      const tracks = vidRef.current.textTracks;
+      for (let i = 0; i < tracks.length; i++) {
+        // Only set mode to 'showing' if subtitles are on and the track matches our active ID.
+        // For HTML tracks, 'label' is what we matched it with `sub.name`.
+        const isActive = subtitlesOn && availableSubtitles.find(s => s.id === activeSubtitle)?.name === tracks[i].label;
+        tracks[i].mode = isActive ? 'showing' : 'hidden';
+      }
+    }
+  }, [subtitlesOn, activeSubtitle, availableSubtitles]);
+
   const handleTap = () => {
     if (showSettings || showOptionsMenu || showSubtitlesMenu || showVolumeMenu) {
       setShowSettings(false);
@@ -271,7 +289,37 @@ function VideoPlayer({ video, onClose, onNext, onPrev }: { video: any; onClose: 
         onPointerCancel={handlePointerLeave}
         onClick={handlePlayerClick}
       >
-        {video.path ? <video src={video.path} autoPlay={isPlaying} ref={vidRef} className="w-full aspect-video bg-black z-0 object-contain" onTimeUpdate={(e)=>{ if(!isDraggingProgress.current) setProgress((e.target.currentTime/e.target.duration)*100); }} onEnded={()=>{if(onNext) onNext(); else onClose();}} /> : <motion.div animate={{scale:isPlaying?[1,1.05,1]:1}} transition={{duration:15,repeat:Infinity,ease:"linear"}} className="w-full aspect-video bg-gradient-to-br from-zinc-800 via-zinc-900 to-black z-0 relative flex items-center justify-center"><Film className="w-24 h-24 text-white/10"/></motion.div>}
+        {video.path ? (
+          <video 
+            src={video.path} 
+            autoPlay={isPlaying} 
+            ref={vidRef} 
+            className="w-full aspect-video bg-black z-0 object-contain" 
+            crossOrigin="anonymous"
+            onTimeUpdate={(e)=>{ 
+              const tgt = e.target as HTMLVideoElement;
+              if(!isDraggingProgress.current && tgt.duration) {
+                setProgress((tgt.currentTime/tgt.duration)*100); 
+              }
+            }} 
+            onEnded={()=>{if(onNext) onNext(); else onClose();}}
+          >
+            {availableSubtitles.filter(s => s.src).map(sub => (
+              <track 
+                key={sub.id} 
+                kind="subtitles" 
+                src={sub.src} 
+                srcLang="en" 
+                label={sub.name} 
+                default={activeSubtitle === sub.id && subtitlesOn} 
+              />
+            ))}
+          </video>
+        ) : (
+          <motion.div animate={{scale:isPlaying?[1,1.05,1]:1}} transition={{duration:15,repeat:Infinity,ease:"linear"}} className="w-full aspect-video bg-gradient-to-br from-zinc-800 via-zinc-900 to-black z-0 relative flex items-center justify-center">
+            <Film className="w-24 h-24 text-white/10"/>
+          </motion.div>
+        )}
         
         {/* Indicator UI for skips/speeds */}
         <AnimatePresence>
@@ -288,7 +336,7 @@ function VideoPlayer({ video, onClose, onNext, onPrev }: { video: any; onClose: 
         </AnimatePresence>
 
         {/* Subtitles Overlay Layer */}
-        {subtitlesOn && (
+        {subtitlesOn && (activeSubtitle === 'en' || activeSubtitle === 'es') && (
            <div className={`absolute left-0 right-0 pointer-events-none flex items-center justify-center text-center p-4 transition-all duration-300 ${showControls ? 'bottom-28' : 'bottom-10'}`}>
               <div className="bg-black/60 backdrop-blur-sm text-white px-4 py-2 rounded text-sm sm:text-base md:text-lg font-medium tracking-wide shadow-lg border border-white/10 inline-block max-w-[80%]">
                  {activeSubtitle === 'es' ? 'Este es un subtítulo de ejemplo...' : 'This is a sample subtitle track...'}
@@ -505,7 +553,8 @@ function VideoPlayer({ video, onClose, onNext, onPrev }: { video: any; onClose: 
                         const newSub = {
                           id: Date.now().toString(),
                           name: file.name,
-                          type: 'imported'
+                          type: 'imported',
+                          src: URL.createObjectURL(file)
                         };
                         setAvailableSubtitles(prev => [...prev, newSub]);
                         setActiveSubtitle(newSub.id);
@@ -1375,6 +1424,7 @@ export default function App() {
       <AnimatePresence>
         {playingVideo && (
            <VideoPlayer 
+            key={playingVideo.id}
             video={playingVideo} 
             onClose={() => setPlayingVideo(null)} 
             onNext={handleNextVideo}
